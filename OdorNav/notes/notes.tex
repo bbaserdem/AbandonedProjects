@@ -1,0 +1,287 @@
+\title{SPH Notes}
+\author{
+    Batuhan Başerdem  \\
+    Department of Physics\\
+    Stony Brook University\\
+}
+\date{\today}
+
+\documentclass[12pt]{article}
+
+\usepackage[margin=0.5in]{geometry}
+\usepackage{nicefrac}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+These are my notes for Fluid Mechanics Simulation using SPH
+\end{abstract}
+
+
+\section{Quantities}
+
+Mass is measured per transverse lenght in 2D.
+
+\section{Kernel}
+
+The following is how the kernel function is abstracted
+
+\[
+    w^{(k)}_h(\tilde{\mathbf{r}}) = \frac{f^{k}(q)}{h^{d+k}} 
+\]
+
+\[
+    q = \frac{\left|\tilde{\mathbf{r}}\right|}{h}
+\]
+
+\[
+    \nabla w^{(k)}_h(\tilde{\mathbf{r}}) = w^{(k)}_h(\tilde{\mathbf{r}})
+        \frac{\tilde{\mathbf{r}}}{\left|\tilde{\mathbf{r}}\right|}
+\]
+
+\[
+    \tilde{\mathbf{r}}_{ab} = \mathbf{r_a} - \mathbf{r_b}
+\]
+
+The function f here is up to choice, and determines the coefficients.
+I will always default to Wendland kernel,
+as it is the most regular one from the literature I have been reading.
+
+\[
+    f_{W,d}(q) = a_{W,d} \left\{
+        \begin{array}{cl}
+            {\left(1-\frac{q}{2}\right)}^{4} \left( 1 + 2q \right) &
+            \mbox{ 0 \geq q \geq 2 } \\
+            0 &
+            \mbox{ 2 < q }
+        \end{array} \right.
+\]
+
+\[
+    f^{'}_{W,d}(q) = a_{W,d} \left\{
+        \begin{array}{cl}
+            {\left(1-\frac{q}{2}\right)}^{3} \left( -5q \right) &
+            0 \geq q \geq 2 \\
+            0 &
+            2 < q
+        \end{array} \right.
+\]
+
+\[
+    \alpha_{W,2} = \frac{7}{4\pi}
+\]
+
+\[
+    \alpha_{W,2} = \frac{21}{16\pi}
+\]
+
+\section{Solid Wall Particles}
+
+Walls can be made with solid particles.
+Paper I'm following uses twice as dense particles for the edges.
+The type of force used is the Lennard-Jones potential;
+
+\[
+    \mathbf{F}_{a,b} = \left\{
+        \begin{array}{cl}
+            D \left[ { \left( \frac{r_0}{r_{ab}} \right) }^{n_1} -
+                     { \left( \frac{r_0}{r_{ab}} \right) }^{n_2} \right] &
+            r_{ab} < r_0 \\
+            0 &
+            r_0 \leq r_{ab} 
+        \end{array} \right.
+\]
+
+Which has 4 parameters. ($n_1=12$, $n_2=4$, $D$, $r_0$)
+
+\section{Integration Scheme}
+
+In terms of numerical simulations, a symplectic scheme seems to be the best.
+I will usually default to the Störmer-Verlet scheme
+
+\[
+    \mathbf{r}_{a}^{m+\nicefrac{1}{2}} =
+    \mathbf{r}_{a}^{m} +
+    \mathbf{u}_{a}^{m} \frac{\delta t}{2}
+\]
+\[
+    \mathbf{u}_{a}^{m+1} =
+    \mathbf{r}_{a}^{m} +
+    \frac{1}{m_a} \mathbf{F}_{a}^{m+\nicefrac{1}{2}} \delta t
+\]
+\[
+    \mathbf{r}_{a}^{m+1} =
+    \mathbf{r}_{a}^{m+\nicefrac{1}{2}} +
+    \mathbf{u}_{a}^{m+1} \frac{\delta t}{2}
+\]
+
+\section{Interpolators}
+
+There are multiple interpolation operators, and different ones can be used.
+All these formulas refer to the volume; which is
+
+\[
+    V_a = \frac{m_a}{\rho_a}
+\]
+
+Field interpolator is simple;
+
+\[
+    J \left\{ A_a \right\} := \left\{
+        \sum\limits_{b} V_b A_b w_{ab}
+    \right\} \approx
+    \left\{ A_a \right\}
+\]
+
+There are specific operators, gradient and divergence for tensors.
+
+\[
+    \mathbf{G} \left\{ A_a \right\} := \left\{
+        \sum\limits_{b} V_b A_b w^{'}_{ab} \mathbf{e}_{ab}
+    \right\} \approx
+    \left\{ \nabla A_a \right\}
+\]
+
+\[
+    D \left\{ \mathbf{A}_a \right\} := \left\{
+        \sum\limits_{b} V_b \mathbf{A}_b \cdot w^{'}_{ab} \mathbf{e}_{ab}
+    \right\} \approx
+    \left\{ \nabla \cdot \mathbf{A}_a \right\}
+\]
+
+\subsection{Variants of Interpolation Operators}
+
+There are operations that leave the differential operators invariant,
+if applied on the continuous fields.
+New types of gradient fields can be constructed out of these.
+
+\[
+    \mathbf{G}^k_a \left\{ A_i \right\} := \left\{
+        \sum\limits_{b} V_b
+        \frac{\rho_b^{2k}A_a+\rho_a^{2k}A_b}{{\left(\rho_a\rho_b\right)}^k}
+        w^{'}_{ab} \mathbf{e}_{ab}
+    \right\} \approx
+    \left\{ \nabla A_a \right\}
+\]
+
+\[
+    \widetilde{\mathbf{G}}^k_a \left\{A_i\right\} := -\frac{1}{\rho_a^{2k}}\left\{
+        \sum\limits_{b} V_b {\left( \rho_a \rho_b \right)}^{k}
+        \left( A_a - A_b \right) w^{'}_{ab} \mathbf{e}_{ab}
+    \right\} \approx
+    \left\{ \nabla A_a \right\}
+\]
+
+And the new divergence operators are;
+
+\[
+    D^k_i \left\{ \mathbf{A}_a \right\} := \left\{
+        \sum\limits_{b} V_b
+        \frac{\rho_b^{2k}\mathbf{A}_a+\rho_a^{2k}\mathbf{A}_b}{{\left(\rho_a\rho_b\right)}^k}
+        \cdot w^{'}_{ab} \mathbf{e}_{ab}
+    \right\} \approx
+    \left\{ \nabla \cdot \mathbf{A}_a \right\}
+\]
+
+\[
+    \widetilde{D}^k_i \left\{ \mathbf{A}_a \right\} := -\frac{1}{\rho_a^{2k}}\left\{
+        \sum\limits_{b} V_b {\left( \rho_a \rho_b \right)}^{k}
+        \left(\mathbf{A}_a-\mathbf{A}_b\right)
+        \cdot w^{'}_{ab} \mathbf{e}_{ab}
+    \right\} \approx
+    \left\{ \nabla \cdot \mathbf{A}_a \right\}
+\]
+
+Depending on their symmetry properties, some are more appropriate for others.
+Do note that $D^k$ and $-\widetilde{\mathbf{G}}^k$ are adjoint.
+(Likewise, $\widetilde{D}^k$ is adjoint with $-\mathbf{G}^k$)
+So the tilde operator should be used along with the non-tilde variant.
+
+\subsection{Renormalization}
+
+Since particles are discreet, the kernel sum is not unity.
+(Expeccially not around boundaries)
+
+\[
+    \gamma_a := J_a \left\{ 1 \right\} = \sum\limits_{b} V_b w_{ab}
+\]
+
+\[
+    \gamma_a^{'} := \frac{\partial\gamma_a}{\partial\mathbf{r}_a} = 
+    \sum\limits_{b} V_b w^{'}_{ab} \mathbf{e_{ab}} =
+    \mathbf{G}_a\left\{1\right\}
+\]
+
+We can correct for this, and define a new \textit{renormalized} operator.
+
+\[
+    J^{\gamma}_a \left\{A_i\right\} := 
+    \frac{1}{\gamma_a} \sum\limits_{b} V_b w_{ab}
+\]
+
+Which is nice since $J^{\gamma}_a \left\{1\right\}=1$.
+There are also corresponding corrected operators.
+
+\[
+    \mathbf{G}^\gamma_a \left\{ A_i \right\} := \frac{1}{\gamma_a} \left(
+        \mathbf{G}_a \left\{ A_i \right\} -
+        J^{\gamma}_a \left\{A_i\right\} \mathbf{G}_a\left\{1\right\} \right)
+\]
+
+\[
+    D^\gamma_a \left\{ \mathbf{A}_i \right\} := \frac{1}{\gamma_a} \left(
+        D_a \left\{ A_i \right\} -
+    J^{\gamma}_a \left\{A_i\right\} D_a\left\{\mathbf{1}\right\} \right)
+\]
+
+The k-operators lose symmetry, hence they cannot preserve flux.
+They are dealt with differently.
+
+\section{Weakly Compressible Scheme}
+
+Violeau's Lid-Driven Cavity Flow details the use of weakly compressible scheme.
+For density evolution the operator $\widetilde{D}^k$ is used to ensure no flux
+between comoving points.
+
+\[
+    \frac{d\rho_a}{dt} = \frac{1}{\rho_a^{2k-1}} \sum\limits_{b}
+    V_b {\left(\rho_a\rho_b\right)} \mathbf{u}_{ab} \cdot w^{'}_{ab}
+    \mathbf{e}_{ab}
+\]
+
+Since $\widetilde{D}^k$ is used in the density equation,
+for interparticle force $\mathbf{G}^k$ will be used
+
+\[
+    \mathbf{F}^{int}_{b \rightarrow a} = -\mathbf{F}^{int}_{b \rightarrow a} =
+    -m_am_b\frac{\rho_b^{2k}p_a+\rho_a^{2k}p_b}{{\left(\rho_a\rho_b\right)}^{k+1}}
+    w^{'}_{ab}\mathbf{e}_{ab}
+\]
+
+Pressure is obtained from the Taut equation
+
+\[
+    p_a = \frac{\rho_0c^2_0}{\gamma} \left[
+        {\left( \frac{\rho_a}{\rho_0} \right)}^\gamma + C
+    \right]
+\]
+
+The dissipative forces are
+
+\[
+    \mathbf{F}^{diss}_{b \rightarrow a} = -\mathbf{F}^{diss}_{a \rightarrow b} =
+    2 \left( d + 2 \right) \bar{\mu}_{ab} V_a V_b
+    \frac{\mathbf{u}_{ab} \cdot \mathbf{e}_{ab} }{r_{ab}}
+    w^{'}_{ab}\mathbf{e}_{ab}
+\]
+
+Obviously, the update equations become clear
+
+\[
+    m_a \frac{d\mathbf{u}_a}{dt} = \sum\limits_b \left(
+        \mathbf{F}^{int}_{b \rightarrow a} + \mathbf{F}^{diss}_{b \rightarrow a}
+    \right) + \mathbf{F}^{ext}_{a}
+\]
+
+\end{document}
